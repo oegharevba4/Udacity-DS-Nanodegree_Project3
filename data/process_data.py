@@ -19,7 +19,7 @@ def load_data(messages_filepath, categories_filepath):
     - a merged pandas dataframe of both messages and categories csv file
 
     """
-
+    # read in csv files
     df_messages = pd.read_csv(messages_filepath)
     # print(df_messages.head())
     df_categories = pd.read_csv(categories_filepath)
@@ -77,6 +77,7 @@ def save_data(df, database_filename):
     - null
 
     """
+    # connect to database and read table
     engine = create_engine("sqlite:///{}".format(database_filename))
     df.to_sql("disaster_data_cleaned", con=engine, if_exists="replace", index=False)
 

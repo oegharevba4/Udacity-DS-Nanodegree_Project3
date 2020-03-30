@@ -17,7 +17,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline, FeatureUnion
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.metrics import classification_report
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.utils import parallel_backend
@@ -34,10 +34,12 @@ def load_data(database_filepath):
     - X, Y and column names which are the 36 categories in the dataset
     
     """
-
+    # load in data from database
     engine = create_engine("sqlite:///{}".format(database_filepath))
     df = pd.read_sql_table("disaster_data_cleaned", engine)
     # print(df.head())
+
+    # split dataframe into X and Y
     X = df["message"]
     Y = df.drop(["id", "message", "original", "genre"], axis=1)
     column_names = Y.columns
@@ -55,8 +57,10 @@ def tokenize(text):
     - list of tokens
     
     """
-
+    # normalize data
     text = re.sub(r'[^a-zA-Z0-9]', " ", text.lower())
+
+    # tokenize and lemmatize data
     words = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
     tokens = [lemmatizer.lemmatize(word).strip() for word in words if word not in stopwords.words("english")]
@@ -112,6 +116,7 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
         - Pandas Dataframe of either True or False
 
         """
+        # apply starting_verb function to all input rows
         return pd.DataFrame(pd.Series(X).apply(self.starting_verb))
 
 
@@ -128,7 +133,7 @@ def build_model():
     - ML model
 
     """
-
+    # build pipeline
     pipeline = Pipeline([
         ("features", FeatureUnion([
             ("text_pipeline", Pipeline([
@@ -140,6 +145,7 @@ def build_model():
         ("clf", MultiOutputClassifier(AdaBoostClassifier()))
     ])
 
+    # define GridSearchCV parameters
     parameters = {
         "features__text_pipeline__count_vect__min_df": [2, 5],
         "clf__estimator__learning_rate": [0.1, 1],
@@ -165,7 +171,7 @@ def evaluate_model(model, X_test, Y_test, category_names):
     - None
 
     """
-
+    # iterate through all output categories and calculate precision, recall, f1_score  and accuracy for each
     y_pred = model.predict(X_test)
     precision = []
     recall = []
@@ -197,6 +203,7 @@ def save_model(model, model_filepath):
     - None
 
     """
+    # save model as pickle file
     with open(model_filepath, 'wb') as file:
         pickle.dump(model, file)
 
