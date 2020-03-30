@@ -3,6 +3,7 @@ import plotly
 import pandas as pd
 
 from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from sklearn.base import BaseEstimator, TransformerMixin
 import nltk
@@ -13,19 +14,17 @@ from plotly.graph_objs import Bar, Heatmap
 from sklearn.externals import joblib
 from sqlalchemy import create_engine
 
-
 app = Flask(__name__)
+
 
 def tokenize(text):
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
-    clean_tokens = []
-    for tok in tokens:
-        clean_tok = lemmatizer.lemmatize(tok).lower().strip()
-        clean_tokens.append(clean_tok)
-
+    clean_tokens = [lemmatizer.lemmatize(token).lower().strip() for token in tokens
+                    if token not in stopwords.words("english")]
     return clean_tokens
+
 
 class StartingVerbExtractor(BaseEstimator, TransformerMixin):
     """
@@ -39,7 +38,7 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
     - False otherwise
     
     """
-    
+
     def starting_verb(self, text):
         """
         Function to nomalize, tokenize,lemmmatize and append part of speech (pos) to words in a sentence
@@ -64,10 +63,10 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
                 if first_tag in ['VB', 'VBP'] or first_word == 'RT':
                     return True
         return False
-    
+
     def fit(self, X, y=None):
         return self
-    
+
     def transform(self, X):
         """
         Function to apply starting_verb function to all rows of X
@@ -81,6 +80,7 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
         """
         return pd.DataFrame(pd.Series(X).apply(self.starting_verb))
 
+
 # load data
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
 df = pd.read_sql_table('disaster_data_cleaned', engine)
@@ -93,23 +93,20 @@ model = joblib.load("../models/classifier.pkl")
 @app.route('/')
 @app.route('/index')
 def index():
-    
     # extract data needed for visuals
     # TODO: Below is an example - modify to extract data for your own visuals
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
-    
-    
+
     # distribution of message categories
     X = df["message"]
     Y = df.drop(["id", "message", "original", "genre"], axis=1)
     Y_sum = Y.sum(axis=0)
     column_names = list(Y.columns)
-    
+
     # Correlation of message categories on heatmap
     corr = Y.corr()
-    
-    
+
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
     graphs = [
@@ -131,7 +128,7 @@ def index():
                 }
             }
         },
-        
+
         {
             'data': [
                 Bar(
@@ -152,7 +149,7 @@ def index():
                 }
             }
         },
-        
+
         {
             'data': [
                 Heatmap(
@@ -172,11 +169,11 @@ def index():
             }
         }
     ]
-    
+
     # encode plotly graphs in JSON
     ids = ["graph-{}".format(i) for i, _ in enumerate(graphs)]
     graphJSON = json.dumps(graphs, cls=plotly.utils.PlotlyJSONEncoder)
-    
+
     # render web page with plotly graphs
     return render_template('master.html', ids=ids, graphJSON=graphJSON)
 
@@ -185,7 +182,7 @@ def index():
 @app.route('/go')
 def go():
     # save user input in query
-    query = request.args.get('query', '') 
+    query = request.args.get('query', '')
 
     # use model to predict classification for query
     classification_labels = model.predict([query])[0]

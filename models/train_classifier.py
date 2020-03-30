@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# import all relevant models
+# import all relevant libraries
 import sys
 import re
 import pandas as pd
@@ -34,7 +34,7 @@ def load_data(database_filepath):
     - X, Y and column names which are the 36 categories in the dataset
     
     """
-    
+
     engine = create_engine("sqlite:///{}".format(database_filepath))
     df = pd.read_sql_table("disaster_data_cleaned", engine)
     # print(df.head())
@@ -55,7 +55,7 @@ def tokenize(text):
     - list of tokens
     
     """
-    
+
     text = re.sub(r'[^a-zA-Z0-9]', " ", text.lower())
     words = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
@@ -75,11 +75,11 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
     - False otherwise
     
     """
-    
+
     def starting_verb(self, text):
         """
         Function to nomalize, tokenize,lemmmatize and append part of speech (pos) to words in a sentence
-        Also checks if first word has a pos of verb
+        Also checks if first word is a verb
 
         input:
         - text : sentence
@@ -89,9 +89,6 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
 
         """
         sentence_list = nltk.sent_tokenize(text)
-        # print("/n", sentence_list)
-        # sentence_list = [i for i in sentence_list if i]
-        # print("/n", sentence_list)
         for sentence in sentence_list:
             pos_tags = nltk.pos_tag(tokenize(sentence))
             # print("\n", pos_tags)
@@ -100,10 +97,10 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
                 if first_tag in ['VB', 'VBP'] or first_word == 'RT':
                     return True
         return False
-    
+
     def fit(self, X, y=None):
         return self
-    
+
     def transform(self, X):
         """
         Function to apply starting_verb function to all rows of X
@@ -117,11 +114,12 @@ class StartingVerbExtractor(BaseEstimator, TransformerMixin):
         """
         return pd.DataFrame(pd.Series(X).apply(self.starting_verb))
 
-    
+
 def build_model():
     """
     Function to build ML pipeline and run GridSearchCV with a list of specified parameters
-    ** I reduced the parameters dictionary because of computation time, you can comment out some or add to it as necessary
+    **I reduced the parameters dictionary because of computation time,
+        you can comment out some or add to it as necessary
 
     input:
     - None
@@ -130,18 +128,18 @@ def build_model():
     - ML model
 
     """
-    
+
     pipeline = Pipeline([
         ("features", FeatureUnion([
             ("text_pipeline", Pipeline([
-                ("count_vect" , CountVectorizer(tokenizer=tokenize)),
+                ("count_vect", CountVectorizer(tokenizer=tokenize)),
                 ("tfidf_vect", TfidfTransformer()),
             ])),
             ("starting_verb", StartingVerbExtractor())
         ])),
-        ("clf", MultiOutputClassifier(AdaBoostClassifier()))    
+        ("clf", MultiOutputClassifier(AdaBoostClassifier()))
     ])
-    
+
     parameters = {
         "features__text_pipeline__count_vect__min_df": [2, 5],
         "clf__estimator__learning_rate": [0.1, 1],
@@ -154,36 +152,36 @@ def build_model():
 
 def evaluate_model(model, X_test, Y_test, category_names):
     """
-    Function to evaluate model 
+    Function to evaluate model and print pandas Dataframe showing
+    precision, recall, f1_score and accuracy across all 36 categories
     
     input:
     - model: pre-built model
     - X_test : test data input
     - Y_test : test data output
-    - category_names : names of 36 categories in the dataset
+    - category_names : names of 36 message categories in the dataset
 
     returns:
-    - pandas Dataframe showing precision, recall, f1_score and accuracy across all 36 categories
+    - None
 
     """
-    
+
     y_pred = model.predict(X_test)
     precision = []
     recall = []
     accuracy = []
     f1_score = []
     for i, col in enumerate(category_names):
-        #print(y_test.loc[:,col])
+        # print(y_test.loc[:,col])
         res = classification_report(Y_test.loc[:, col], y_pred[:, i], output_dict=True)
         precision.append(res["weighted avg"]["precision"])
         recall.append(res["weighted avg"]["recall"])
         f1_score.append(res["weighted avg"]["f1-score"])
         accuracy.append(res["accuracy"])
 
-        #print("\n",classification_report(y_test.loc[:, col], y_pred[:, i]))
-    print(pd.DataFrame(data={"precision": precision, "recall": recall, "f1-score": f1_score, "accuracy": accuracy}, 
+        # print("\n",classification_report(y_test.loc[:, col], y_pred[:, i]))
+    print(pd.DataFrame(data={"precision": precision, "recall": recall, "f1-score": f1_score, "accuracy": accuracy},
                        index=category_names))
-        
 
 
 def save_model(model, model_filepath):
@@ -209,7 +207,7 @@ def main():
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
         X, Y, category_names = load_data(database_filepath)
         X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
-        
+
         # run jobs in process-based parallelism on a single host
         with parallel_backend('multiprocessing'):
             print('Building model...')
@@ -217,7 +215,7 @@ def main():
 
             print('Training model...')
             model.fit(X_train, Y_train)
-            print("The best paramaters used are: ", model.best_params_)
+            # print("\n", "The best parameters used are: ", model.best_params_)
 
             print('Evaluating model...')
             evaluate_model(model, X_test, Y_test, category_names)
@@ -228,9 +226,9 @@ def main():
         print('Trained model saved!')
 
     else:
-        print('Please provide the filepath of the disaster messages database '\
-              'as the first argument and the filepath of the pickle file to '\
-              'save the model to as the second argument. \n\nExample: python '\
+        print('Please provide the filepath of the disaster messages database ' \
+              'as the first argument and the filepath of the pickle file to ' \
+              'save the model to as the second argument. \n\nExample: python ' \
               'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
 
 
